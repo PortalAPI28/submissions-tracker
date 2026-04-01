@@ -397,7 +397,7 @@ const FIELDS = ['date','business','industry','name','tib','credit','state','iso'
 let deals = {};        // {id: dealData}
 let openTabs = [];     // [dealId, ...]
 let activeView = 'dashboard'; // 'dashboard' or dealId
-let firebaseUrl = null;
+let firebaseUrl = 'https://submissions-tracker-db9ac-default-rtdb.firebaseio.com';
 let ctxTarget = null;
 
 /* ============================================================
@@ -876,7 +876,7 @@ loadFromFirebase(() => {
     showDashboard();
   }
 });
-checkFirebaseSetup();
+// Firebase is hardcoded — no setup needed
 </script>
 </body>
 </html>
