@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gotham Submission Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c10;
+  --bg2: #0e1117;
+  --card: #151921;
+  --card-hover: #1a2030;
+  --border: #252d3a;
+  --border-focus: #58a6ff;
+  --text: #e6edf3;
+  --text-muted: #6e7681;
+  --accent: #58a6ff;
+  --accent-dim: rgba(88,166,255,0.10);
+  --green: #3fb950;
+  --green-dim: rgba(63,185,80,0.10);
+  --yellow: #d29922;
+  --yellow-dim: rgba(210,153,34,0.10);
+  --red: #f85149;
+  --red-dim: rgba(248,81,73,0.10);
+  --orange: #db6d28;
+  --input-bg: #0d1117;
+  --radius: 6px;
+  --font: 'Outfit', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden;}
+
+/* ===== LAYOUT ===== */
+.app{display:flex;height:100vh;}
+
+/* --- Sidebar --- */
+.sidebar{width:260px;min-width:260px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width 0.2s;}
+.sidebar-header{padding:20px 16px 12px;border-bottom:1px solid var(--border);}
+.sidebar-logo{font-size:15px;font-weight:800;letter-spacing:-0.5px;display:flex;align-items:center;gap:8px;}
+.sidebar-logo span{color:var(--accent);}
+.sidebar-actions{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;}
+
+.btn{font-family:var(--font);font-size:12px;font-weight:600;padding:7px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;transition:all 0.12s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.btn:hover{background:var(--card-hover);border-color:var(--text-muted);}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-primary:hover{background:#4090e0;}
+.btn-sm{padding:5px 10px;font-size:11px;}
+.btn-danger{color:var(--red);border-color:transparent;background:var(--red-dim);}
+.btn-danger:hover{background:rgba(248,81,73,0.2);}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--text-muted);}
+.btn-ghost:hover{background:rgba(255,255,255,0.04);color:var(--text);}
+.btn-full{width:100%;justify-content:center;}
+
+.deal-list{flex:1;overflow-y:auto;padding:6px 8px;}
+.deal-list::-webkit-scrollbar{width:4px;}
+.deal-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+.deal-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:var(--radius);cursor:pointer;transition:all 0.1s;border:1px solid transparent;margin-bottom:2px;position:relative;}
+.deal-item:hover{background:var(--card-hover);}
+.deal-item.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.deal-item .deal-biz{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.deal-item .deal-date{font-size:10px;color:var(--text-muted);font-family:var(--mono);}
+.deal-item .deal-close{display:none;font-size:14px;color:var(--text-muted);padding:2px 4px;border-radius:3px;line-height:1;}
+.deal-item:hover .deal-close{display:block;}
+.deal-item .deal-close:hover{background:var(--red-dim);color:var(--red);}
+
+.deal-stats{display:flex;gap:6px;margin-top:3px;}
+.deal-pip{font-size:9px;font-family:var(--mono);font-weight:600;padding:1px 5px;border-radius:3px;}
+.pip-y{background:var(--yellow-dim);color:var(--yellow);}
+.pip-g{background:var(--green-dim);color:var(--green);}
+.pip-r{background:var(--red-dim);color:var(--red);}
+
+.sidebar-footer{padding:10px 12px;border-top:1px solid var(--border);font-size:10px;color:var(--text-muted);text-align:center;}
+
+/* --- Main Panel --- */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* Tab bar */
+.tab-bar{display:flex;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 8px;min-height:38px;overflow-x:auto;gap:2px;}
+.tab-bar::-webkit-scrollbar{height:0;}
+.tab{display:flex;align-items:center;gap:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-muted);transition:all 0.12s;white-space:nowrap;position:relative;}
+.tab:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab .tab-close{font-size:13px;margin-left:2px;padding:1px 3px;border-radius:3px;opacity:0;transition:opacity 0.1s;}
+.tab:hover .tab-close{opacity:1;}
+.tab .tab-close:hover{background:var(--red-dim);color:var(--red);}
+.tab-dash{padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text-muted);border-bottom:2px solid transparent;transition:all 0.12s;}
+.tab-dash:hover{color:var(--text);}
+.tab-dash.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* Content */
+.content{flex:1;overflow-y:auto;padding:24px;background:var(--bg);}
+.content::-webkit-scrollbar{width:6px;}
+.content::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+/* ===== DASHBOARD ===== */
+.dash{max-width:900px;margin:0 auto;}
+.dash-hero{margin-bottom:32px;}
+.dash-hero h2{font-size:26px;font-weight:800;letter-spacing:-0.8px;margin-bottom:6px;}
+.dash-hero p{color:var(--text-muted);font-size:14px;}
+
+.stats-row{display:flex;gap:12px;margin-bottom:28px;}
+.stat-card{flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.stat-card .stat-val{font-size:28px;font-weight:800;font-family:var(--mono);letter-spacing:-1px;}
+.stat-card .stat-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-top:2px;}
+.stat-accent{color:var(--accent);}
+.stat-yellow{color:var(--yellow);}
+.stat-green{color:var(--green);}
+.stat-red{color:var(--red);}
+
+.dash-table{width:100%;border-collapse:collapse;}
+.dash-table th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);}
+.dash-table td{padding:10px 12px;border-bottom:1px solid rgba(37,45,58,0.5);cursor:pointer;transition:background 0.1s;}
+.dash-table tr:hover td{background:rgba(88,166,255,0.04);}
+.dash-table .dt-biz{font-weight:600;font-size:13px;}
+.dash-table .dt-date{font-family:var(--mono);font-size:12px;color:var(--text-muted);}
+.dash-table .dt-state{font-family:var(--mono);font-size:12px;}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-muted);}
+.empty-state h3{font-size:18px;margin-bottom:8px;color:var(--text);}
+
+/* ===== DEAL FORM ===== */
+.deal-view{max-width:1100px;margin:0 auto;}
+.deal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+.deal-header h2{font-size:20px;font-weight:700;letter-spacing:-0.4px;}
+.deal-header-actions{display:flex;gap:8px;}
+
+.section{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px;margin-bottom:14px;}
+.section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-bottom:14px;}
+
+.fields-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px;}
+.field label{display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;}
+.field input,.field select{width:100%;font-family:var(--mono);font-size:12px;padding:6px 9px;background:var(--input-bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);outline:none;transition:border-color 0.15s;}
+.field input:focus,.field select:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px var(--accent-dim);}
+.field input::placeholder{color:#3a414a;}
+.field-wide{grid-column:span 2;}
+
+.rev-table{width:100%;border-collapse:collapse;font-size:12px;}
+.rev-table th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);text-align:left;padding:6px 8px;border-bottom:2px solid var(--border);}
+.rev-table td{padding:3px 4px;border-bottom:1px solid var(--border);}
+.rev-table input{width:100%;font-family:var(--mono);font-size:12px;padding:4px 7px;background:var(--input-bg);border:1px solid transparent;border-radius:4px;color:var(--text);outline:none;}
+.rev-table input:focus{border-color:var(--border-focus);box-shadow:0 0 0 2px var(--accent-dim);}
+.rev-table .row-label{width:34px;padding:3px 4px;}
+.rev-table .row-label input{width:28px;text-align:center;font-family:var(--mono);font-size:11px;padding:4px 2px;background:var(--input-bg);border:1px solid var(--border);border-radius:4px;color:var(--text-muted);outline:none;}
+.rev-table .row-label input:focus{border-color:var(--border-focus);box-shadow:0 0 0 2px var(--accent-dim);color:var(--text);}
+
+.inline-group{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.radio-group{display:flex;gap:4px;}
+.radio-group label{font-size:12px;font-weight:500;padding:4px 12px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:var(--input-bg);transition:all 0.12s;color:var(--text-muted);}
+.radio-group input{display:none;}
+.radio-group input:checked+label{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+
+/* Lender table */
+.risk-header{font-size:12px;font-weight:700;padding:8px 10px;border-radius:var(--radius);margin:10px 0 4px 0;display:flex;align-items:center;gap:7px;}
+.risk-header::before{content:'';width:7px;height:7px;border-radius:50%;}
+.risk-low{background:var(--green-dim);color:var(--green);}
+.risk-mid{background:var(--yellow-dim);color:var(--yellow);}
+.risk-high{background:var(--red-dim);color:var(--red);}
+.risk-low::before{background:var(--green);}
+.risk-mid::before{background:var(--yellow);}
+.risk-high::before{background:var(--red);}
+
+.lender-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+.lender-table th{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);}
+.lender-table td{padding:4px 8px;border-bottom:1px solid rgba(37,45,58,0.4);vertical-align:top;}
+.lender-table tr{cursor:pointer;transition:background 0.12s;user-select:none;}
+.lender-table tr:hover td{background:rgba(88,166,255,0.04);}
+
+.lender-table tr.sent td{background:var(--yellow-dim);}
+.lender-table tr.sent .lender-name{color:var(--yellow);}
+.lender-table tr.sent:hover td{background:rgba(210,153,34,0.16);}
+
+.lender-table tr.approved td{background:var(--green-dim);}
+.lender-table tr.approved .lender-name{color:var(--green);}
+.lender-table tr.approved:hover td{background:rgba(63,185,80,0.16);}
+
+.lender-table tr.declined td{background:var(--red-dim);}
+.lender-table tr.declined .lender-name{color:var(--red);}
+.lender-table tr.declined:hover td{background:rgba(248,81,73,0.16);}
+
+.lender-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lender-email{font-family:var(--mono);font-size:10px;color:var(--text-muted);word-break:break-all;}
+.lender-exempt{font-size:10px;color:var(--yellow);}
+
+.col-name{width:16%;}
+.col-email{width:35%;}
+.col-exempt{width:16%;}
+.col-status{width:33%;}
+
+.lender-table .status-input{width:100%;font-family:var(--font);font-size:11px;padding:3px 7px;background:transparent;border:1px solid transparent;border-radius:4px;color:var(--text);outline:none;transition:all 0.12s;}
+.lender-table .status-input:hover{border-color:var(--border);background:var(--input-bg);}
+.lender-table .status-input:focus{border-color:var(--border-focus);background:var(--input-bg);box-shadow:0 0 0 2px var(--accent-dim);}
+
+/* Context menu */
+.ctx-menu{position:fixed;z-index:200;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,0.5);display:none;min-width:150px;animation:fadeIn 0.1s ease-out;}
+.ctx-menu.show{display:block;}
+.ctx-menu button{display:flex;align-items:center;gap:7px;width:100%;padding:7px 11px;border:none;background:transparent;color:var(--text);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;border-radius:5px;transition:background 0.1s;}
+.ctx-menu button:hover{background:rgba(255,255,255,0.06);}
+.ctx-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.ctx-dot-green{background:var(--green);}
+.ctx-dot-red{background:var(--red);}
+.ctx-dot-clear{background:var(--text-muted);}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--green);color:#fff;font-weight:600;font-size:12px;padding:8px 18px;border-radius:var(--radius);opacity:0;transform:translateY(10px);transition:all 0.25s;pointer-events:none;z-index:300;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+/* Legend */
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;padding:8px 0;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);}
+.legend-dot{width:10px;height:10px;border-radius:3px;}
+.ld-y{background:var(--yellow-dim);border:1px solid var(--yellow);}
+.ld-g{background:var(--green-dim);border:1px solid var(--green);}
+.ld-r{background:var(--red-dim);border:1px solid var(--red);}
+
+/* Sync indicator */
+.sync-indicator{display:flex;align-items:center;gap:4px;font-size:10px;font-family:var(--mono);color:var(--text-muted);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
+.sync-dot.offline{background:var(--red);}
+
+/* Firebase setup overlay */
+.setup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.setup-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;max-width:520px;width:90%;}
+.setup-box h3{font-size:18px;font-weight:700;margin-bottom:6px;}
+.setup-box p{font-size:13px;color:var(--text-muted);margin-bottom:18px;line-height:1.5;}
+.setup-box .field{margin-bottom:12px;}
+.setup-box .field input{font-size:13px;padding:9px 12px;}
+.setup-box .field small{font-size:11px;color:var(--text-muted);display:block;margin-top:4px;}
+.setup-btns{display:flex;gap:8px;margin-top:18px;}
+
+@keyframes fadeIn{from{opacity:0;transform:scale(0.96);}to{opacity:1;transform:scale(1);}}
+
+/* Responsive */
+@media(max-width:800px){
+  .sidebar{width:0;min-width:0;overflow:hidden;position:fixed;z-index:100;height:100vh;}
+  .sidebar.open{width:260px;min-width:260px;}
+  .col-email{display:none;}
+  .fields-grid{grid-template-columns:1fr 1fr;}
+}
+
+/* Print */
+@media print{
+  body{background:#fff;color:#000;overflow:visible;}
+  .sidebar,.tab-bar,.deal-header-actions,.ctx-menu,.toast,.legend,.sync-indicator,.setup-overlay{display:none!important;}
+  .main,.content{overflow:visible!important;}
+  .section{border-color:#ccc;background:#fff;}
+  .field input,.rev-table input,.status-input{border:none!important;background:none!important;box-shadow:none!important;color:#000!important;font-weight:600;}
+  .risk-header{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .lender-table tr.sent td{background:#fff3cd!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .lender-table tr.approved td{background:#d4edda!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .lender-table tr.declined td{background:#f8d7da!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo"><span>G</span> Gotham Tracker</div>
+    </div>
+    <div class="sidebar-actions">
+      <button class="btn btn-primary btn-full" onclick="createDeal()">+ New Deal</button>
+    </div>
+    <div class="deal-list" id="deal-list"></div>
+    <div class="sidebar-footer">
+      <div class="sync-indicator" id="sync-status">
+        <span class="sync-dot" id="sync-dot"></span>
+        <span id="sync-text">Local mode</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="tab-bar" id="tab-bar">
+      <div class="tab-dash active" onclick="showDashboard()">Dashboard</div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<div class="ctx-menu" id="ctx-menu">
+  <button onclick="setLenderState('approved')"><span class="ctx-dot ctx-dot-green"></span>Approved</button>
+  <button onclick="setLenderState('declined')"><span class="ctx-dot ctx-dot-red"></span>Declined</button>
+  <button onclick="setLenderState('')"><span class="ctx-dot ctx-dot-clear"></span>Clear Status</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase Setup Overlay (hidden by default) -->
+<div class="setup-overlay" id="setup-overlay" style="display:none;">
+  <div class="setup-box">
+    <h3>Connect Firebase</h3>
+    <p>To sync deals across devices, paste your Firebase Realtime Database URL below. This is a one-time setup.<br><br>
+    Don't have one? Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent);">Firebase Console</a> → Create project → Realtime Database → Create → Start in test mode → copy the URL.</p>
+    <div class="field">
+      <label>Firebase Database URL</label>
+      <input id="fb-url" placeholder="https://your-project.firebaseio.com">
+      <small>e.g. https://gotham-tracker-default-rtdb.firebaseio.com</small>
+    </div>
+    <div class="setup-btns">
+      <button class="btn btn-ghost" onclick="skipFirebase()">Skip — use local only</button>
+      <button class="btn btn-primary" onclick="connectFirebase()">Connect</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   LENDER DATA
+   ============================================================ */
+const LENDERS = {
+  "Low Risk": [
+    {name:"Idea Financial (App 1)",email:"*use portal to submit*",exempt:""},
+    {name:"Rapid Finance / SBFS",email:"*use portal to submit*",exempt:"NO NJ"},
+    {name:"Headway*",email:"*use portal to submit*",exempt:"NO CA"},
+    {name:"On Deck",email:"*use portal to submit*",exempt:""},
+    {name:"Fora Financial",email:"*use portal to submit*",exempt:""},
+    {name:"Can Capital",email:"*use portal to submit*",exempt:""},
+    {name:"Credibly (App 1)",email:"*use portal to submit*",exempt:""},
+    {name:"Kapitus",email:"newcontracts@Kapitus.com",exempt:""},
+    {name:"Altbanq",email:"nd@altbanq.com",exempt:"NO CA"},
+    {name:"Biz2Credit",email:"Lius.perez@biz2credit.com",exempt:"NO SOLE PROP"},
+    {name:"IOU*",email:"vsamii@ioufinancial.com",exempt:"NO CA, HI"},
+    {name:"Smart Step",email:"submissions@smartstepfunding.com cc sales@smartstepfunding.com",exempt:""},
+    {name:"Libertas",email:"mathias.grez@libertasfunding.com",exempt:""},
+    {name:"Kalamata",email:"deals@kalamatacapitalgroup.com cc amy.erlich@kalamatacapitalgroup.com",exempt:""},
+    {name:"Newport Capital",email:"submissions@newportbc.com cc kborth@newportbc.com",exempt:"NO TX ONLY CC SPLITS"},
+    {name:"Greenbox",email:"submissions@greenboxcapital.com",exempt:"NO TX"},
+  ],
+  "Mid Risk": [
+    {name:"Fundworks",email:"newdeals@thefundworks.com cc jlee@thefundworks.com",exempt:""},
+    {name:"Vox Funding",email:"submissions@voxfunding.com cc wdorsey@voxfunding.com",exempt:""},
+    {name:"Bizfund",email:"leor@bizfund.com",exempt:""},
+    {name:"Fundkite",email:"submissions@fundkite.com cc victoria.t@fundkite.com",exempt:""},
+    {name:"Spartan",email:"kmcmahon@spartancapitalgroup.com cc funding@spartancapitalgroup.com",exempt:""},
+    {name:"CFG",email:"jpsubs@cfgms.com cc jpascalino@cfgms.com",exempt:""},
+    {name:"EBF",email:"newdeals@ev-bf.com cc xotchil.aleman@everestbusinessfunding.com",exempt:""},
+    {name:"Bitty Advance",email:"*use portal to submit*",exempt:""},
+    {name:"Reliance",email:"uw@reliancef.com cc klaudia@reliancef.com",exempt:""},
+    {name:"NewCo",email:"submissions@newcocapitalgroup.com cc gabriel@newcocapitalgroup.com",exempt:""},
+    {name:"Capital Domain",email:"Deals@capitaldomain.com",exempt:""},
+    {name:"Velocity",email:"subs@velocitycg.com cc jesse@velocitycg.com",exempt:""},
+    {name:"Rowan Advance",email:"deals@rowanadvance.com cc eli@rowanadvance.com",exempt:""},
+    {name:"Fintap",email:"submissions@fintap.com cc asilverstein@fintap.com",exempt:"NO VA, MO"},
+    {name:"1Fundr",email:"submissions@1fundr.com cc kyle@1fundr.com",exempt:"NO VA"},
+    {name:"Vital Cap",email:"submissions@vitalcapfund.com cc jaime@vitalcapfund.com",exempt:"NO UT"},
+    {name:"Merit BF*",email:"submissions@meritbf.com cc jstrelzik@meritbf.com",exempt:"NO CA or SOLE PROP"},
+    {name:"Amsterdam*",email:"submissions@acgroupinc.com cc mhench@acgroupinc.com",exempt:"NO UT, CA, TX 1ST"},
+    {name:"Wall Funding",email:"iso@wallfunding.com",exempt:"NO TX"},
+    {name:"Simply Funding",email:"submissions@simplyfunding.com cc ryanc@simplyfunding.com",exempt:"NO TX, HI, AK"},
+    {name:"Fyncap",email:"submissions@fyncap.com cc sam@fyncap.com",exempt:"NO TX"},
+    {name:"Madison Advance",email:"newdeals@madisonadvance.com cc ezzy@madisonadvance.com",exempt:"NO TX, CT"},
+    {name:"Cobalt Funding",email:"deals@cobaltfunding.com cc jbok@cobaltfunding.com",exempt:"NO TX"},
+    {name:"Lifetime",email:"nate@lifetimefundingllc.com cc newdeals@lifetimefundingllc.com",exempt:"NO TX"},
+    {name:"Blackbridge",email:"subs@bbigm.com",exempt:"NO TX"},
+    {name:"EFinancial Tree",email:"submissions@efinancialtree.com cc craig@efinancialtree.com",exempt:"NO TX, UT"},
+    {name:"Retro Advance*",email:"newdeals@retroadv.com cc a.fava@retroadv.com",exempt:"NO TX, CA"},
+    {name:"Purple Tree*",email:"submissions@purpletreefunding.com cc kayla@purpletreefunding.com",exempt:"NO CA, TX"},
+    {name:"Capybara*",email:"deals@capybarausa.com cc doug@capybarausa.com cc Lbreno@capybarausa.com",exempt:"NO CA, UT"},
+    {name:"Smarter Merchant*",email:"submissions@thesmartermerchant.com cc joseph@thesmartermerchant.com",exempt:"NO CA, TX"},
+    {name:"Alt Funding*",email:"uw@altfunding.com",exempt:"NO CA, TX"},
+    {name:"QFS Capital***",email:"submissions@qfscapital.com cc josh@qfscapital.com",exempt:""},
+    {name:"GFE***",email:"underwriting@globalfundingexperts.com cc lior@globalfundingexperts.com",exempt:""},
+    {name:"Nexi***",email:"submissions@gonexi.com cc angie@gonexi.com",exempt:""},
+    {name:"Silverline***",email:"submissions@silverlinefunding.com cc chaya@silverlinefunding.com",exempt:"NO TX"},
+    {name:"Highland Hill***",email:"tristan@highlandhillcap.com cc submissions@highlandhillcap.com",exempt:"NO TX"},
+  ],
+  "High Risk": [
+    {name:"Merchant First",email:"uw@merchantfirst.net cc bmontesano@merchantfirst.net",exempt:"NO TX"},
+    {name:"Dependence",email:"uw@dependancep.com cc klaudia@reliancef.com",exempt:""},
+    {name:"Trofeo Capital",email:"nick@trofeocap.com cc anthony@trofeocap.com cc erika@trofeocap.com",exempt:"NO TX"},
+    {name:"Ocean Capital",email:"submissions@ocean-funding.com cc steven@ocean-funding.com",exempt:"NO TX"},
+    {name:"Emmy Capital",email:"john@emmycapitalgroup.com cc processing@emmycapitalgroup.com cc uw@emmycapitalgroup.com cc william@emmycapitalgroup.com",exempt:"NO TX"},
+    {name:"Lite Fund / Clear Fund",email:"aron@litefund.co cc deals@litefund.co cc frank@litefund.co",exempt:"NO TX"},
+    {name:"Alo Capital Group",email:"uw@alocapitalgroup.com",exempt:"NO TX"},
+    {name:"Cromwell Capital",email:"submissions@cromwellcapital.com cc ryan@cromwellcapital.com",exempt:"NO NY, TX OVER $100K"},
+    {name:"Epic Advance",email:"subs@epic-advance.com",exempt:"NO TX"},
+    {name:"M&D Capital NY",email:"jeremy@mdcapitalny.com cc subs@mdcapitalny.com",exempt:"NO TX"},
+    {name:"Seamless",email:"subs@seamlesscapitalgroup.com cc dov@seamlesscapitalgroup.com",exempt:"NO TX"},
+    {name:"Diverse",email:"ronen@diversecapitalllc.com cc shannon@kash-advance.com",exempt:"NO TX"},
+    {name:"Prime",email:"uw@primecapitalpartners.org cc anthony@primecapitalpartners.org cc nico@primecapitalpartners.org",exempt:"NO TX"},
+    {name:"Family Funding",email:"miki@familyfundinggroup.com",exempt:"NO TX"},
+    {name:"Unify",email:"subs@unifyfg.com",exempt:"NO TX, CA"},
+  ]
+};
+const RISK_CLASS = {"Low Risk":"risk-low","Mid Risk":"risk-mid","High Risk":"risk-high"};
+const FIELDS = ['date','business','industry','name','tib','credit','state','iso','number','email','leadsource','recentfunding'];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let deals = {};        // {id: dealData}
+let openTabs = [];     // [dealId, ...]
+let activeView = 'dashboard'; // 'dashboard' or dealId
+let firebaseUrl = null;
+let ctxTarget = null;
+
+/* ============================================================
+   STORAGE — localStorage + optional Firebase
+   ============================================================ */
+const LS_KEY = 'gotham_deals';
+const LS_FB = 'gotham_firebase_url';
+const LS_TABS = 'gotham_open_tabs';
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) deals = JSON.parse(raw);
+    const tabs = localStorage.getItem(LS_TABS);
+    if (tabs) openTabs = JSON.parse(tabs).filter(id => deals[id]);
+    firebaseUrl = localStorage.getItem(LS_FB) || null;
+  } catch(e) {}
+}
+
+function saveLocal() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(deals));
+    localStorage.setItem(LS_TABS, JSON.stringify(openTabs));
+  } catch(e) {}
+}
+
+function saveToFirebase() {
+  if (!firebaseUrl) return;
+  fetch(firebaseUrl + '/deals.json', {
+    method: 'PUT',
+    body: JSON.stringify(deals),
+    headers: {'Content-Type': 'application/json'}
+  }).then(() => {
+    setSyncStatus(true);
+  }).catch(() => {
+    setSyncStatus(false);
+  });
+}
+
+function loadFromFirebase(cb) {
+  if (!firebaseUrl) { cb(); return; }
+  fetch(firebaseUrl + '/deals.json')
+    .then(r => r.json())
+    .then(data => {
+      if (data && typeof data === 'object') {
+        // Merge: firebase wins for existing, keep local-only
+        Object.assign(deals, data);
+      }
+      setSyncStatus(true);
+      cb();
+    })
+    .catch(() => { setSyncStatus(false); cb(); });
+}
+
+function persist() {
+  saveLocal();
+  saveToFirebase();
+}
+
+function setSyncStatus(online) {
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-text');
+  if (!firebaseUrl) { txt.textContent = 'Local mode'; dot.className = 'sync-dot offline'; return; }
+  dot.className = online ? 'sync-dot' : 'sync-dot offline';
+  txt.textContent = online ? 'Synced' : 'Offline';
+}
+
+/* ============================================================
+   DEAL CRUD
+   ============================================================ */
+function newDealData() {
+  const id = 'deal_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  return {
+    id,
+    fields: {},
+    courts: '',
+    rev: {},
+    lenders: {},       // status input text
+    lenderStates: {},  // sent/approved/declined
+    created: new Date().toISOString()
+  };
+}
+
+function createDeal() {
+  const d = newDealData();
+  deals[d.id] = d;
+  openTab(d.id);
+  persist();
+  renderSidebar();
+}
+
+function deleteDeal(id) {
+  if (!confirm('Delete this deal permanently?')) return;
+  delete deals[id];
+  openTabs = openTabs.filter(t => t !== id);
+  if (activeView === id) showDashboard();
+  persist();
+  renderSidebar();
+  renderTabBar();
+}
+
+function getDealLabel(d) {
+  return d.fields?.business || 'Untitled Deal';
+}
+
+function getDealPips(d) {
+  let s = 0, a = 0, dec = 0;
+  if (d.lenderStates) {
+    Object.values(d.lenderStates).forEach(v => { if (v==='sent') s++; if (v==='approved') a++; if (v==='declined') dec++; });
+  }
+  return {sent:s, approved:a, declined:dec};
+}
+
+/* ============================================================
+   UI — Sidebar
+   ============================================================ */
+function renderSidebar() {
+  const list = document.getElementById('deal-list');
+  const sorted = Object.values(deals).sort((a,b) => b.created.localeCompare(a.created));
+  if (!sorted.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:30px 10px;"><p style="font-size:12px;">No deals yet</p></div>';
+    return;
+  }
+  list.innerHTML = sorted.map(d => {
+    const pips = getDealPips(d);
+    const isActive = activeView === d.id;
+    return `<div class="deal-item${isActive?' active':''}" onclick="openTab('${d.id}')">
+      <div style="flex:1;overflow:hidden;">
+        <div class="deal-biz">${esc(getDealLabel(d))}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+          <span class="deal-date">${d.fields?.date || '—'}</span>
+          <span class="deal-stats">
+            ${pips.sent?`<span class="deal-pip pip-y">${pips.sent}</span>`:''}
+            ${pips.approved?`<span class="deal-pip pip-g">${pips.approved}</span>`:''}
+            ${pips.declined?`<span class="deal-pip pip-r">${pips.declined}</span>`:''}
+          </span>
+        </div>
+      </div>
+      <span class="deal-close" onclick="event.stopPropagation();deleteDeal('${d.id}')">&times;</span>
+    </div>`;
+  }).join('');
+}
+
+/* ============================================================
+   UI — Tab Bar
+   ============================================================ */
+function renderTabBar() {
+  const bar = document.getElementById('tab-bar');
+  bar.innerHTML = `<div class="tab-dash${activeView==='dashboard'?' active':''}" onclick="showDashboard()">Dashboard</div>` +
+    openTabs.map(id => {
+      const d = deals[id];
+      if (!d) return '';
+      return `<div class="tab${activeView===id?' active':''}" onclick="switchTab('${id}')">
+        ${esc(getDealLabel(d))}
+        <span class="tab-close" onclick="event.stopPropagation();closeTab('${id}')">&times;</span>
+      </div>`;
+    }).join('');
+}
+
+function openTab(id) {
+  if (!openTabs.includes(id)) openTabs.push(id);
+  activeView = id;
+  persist();
+  renderSidebar();
+  renderTabBar();
+  renderDealView(id);
+}
+
+function closeTab(id) {
+  openTabs = openTabs.filter(t => t !== id);
+  if (activeView === id) {
+    if (openTabs.length) switchTab(openTabs[openTabs.length-1]);
+    else showDashboard();
+  }
+  saveLocal();
+  renderTabBar();
+}
+
+function switchTab(id) {
+  activeView = id;
+  saveLocal();
+  renderSidebar();
+  renderTabBar();
+  renderDealView(id);
+}
+
+function showDashboard() {
+  // Save current deal if viewing one
+  if (activeView !== 'dashboard' && deals[activeView]) saveDealFromDOM(activeView);
+  activeView = 'dashboard';
+  saveLocal();
+  renderSidebar();
+  renderTabBar();
+  renderDashboard();
+}
+
+/* ============================================================
+   UI — Dashboard
+   ============================================================ */
+function renderDashboard() {
+  const c = document.getElementById('content');
+  const sorted = Object.values(deals).sort((a,b) => b.created.localeCompare(a.created));
+  let totalSent=0, totalApproved=0, totalDeclined=0;
+  sorted.forEach(d => { const p=getDealPips(d); totalSent+=p.sent; totalApproved+=p.approved; totalDeclined+=p.declined; });
+
+  c.innerHTML = `<div class="dash">
+    <div class="dash-hero">
+      <h2>Gotham Submission Tracker</h2>
+      <p>Manage all your deals and lender submissions in one place.</p>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-val stat-accent">${sorted.length}</div><div class="stat-label">Active Deals</div></div>
+      <div class="stat-card"><div class="stat-val stat-yellow">${totalSent}</div><div class="stat-label">Sent</div></div>
+      <div class="stat-card"><div class="stat-val stat-green">${totalApproved}</div><div class="stat-label">Approved</div></div>
+      <div class="stat-card"><div class="stat-val stat-red">${totalDeclined}</div><div class="stat-label">Declined</div></div>
+    </div>
+    ${sorted.length ? `<table class="dash-table">
+      <thead><tr><th>Business</th><th>Date</th><th>State</th><th>Sent</th><th>Approved</th><th>Declined</th></tr></thead>
+      <tbody>${sorted.map(d => {
+        const p = getDealPips(d);
+        return `<tr onclick="openTab('${d.id}')">
+          <td class="dt-biz">${esc(getDealLabel(d))}</td>
+          <td class="dt-date">${d.fields?.date||'—'}</td>
+          <td class="dt-state">${d.fields?.state||'—'}</td>
+          <td><span class="deal-pip pip-y">${p.sent}</span></td>
+          <td><span class="deal-pip pip-g">${p.approved}</span></td>
+          <td><span class="deal-pip pip-r">${p.declined}</span></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>` : `<div class="empty-state"><h3>No deals yet</h3><p>Click <strong>+ New Deal</strong> to get started.</p></div>`}
+  </div>`;
+}
+
+/* ============================================================
+   UI — Deal View (Form)
+   ============================================================ */
+function renderDealView(id) {
+  const d = deals[id];
+  if (!d) return;
+  const c = document.getElementById('content');
+
+  c.innerHTML = `<div class="deal-view" data-deal-id="${id}">
+    <div class="deal-header">
+      <h2 id="dv-title">${esc(getDealLabel(d))}</h2>
+      <div class="deal-header-actions">
+        <button class="btn btn-danger btn-sm" onclick="deleteDeal('${id}')">Delete</button>
+        <button class="btn btn-sm" onclick="window.print()">Print</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Deal Information</div>
+      <div class="fields-grid">
+        <div class="field"><label>Date</label><input type="date" data-f="date" value="${d.fields?.date||''}"></div>
+        <div class="field"><label>Business</label><input data-f="business" placeholder="Business name" value="${esc(d.fields?.business||'')}"></div>
+        <div class="field"><label>Industry</label><input data-f="industry" placeholder="Industry type" value="${esc(d.fields?.industry||'')}"></div>
+        <div class="field"><label>Name</label><input data-f="name" placeholder="Contact name" value="${esc(d.fields?.name||'')}"></div>
+        <div class="field"><label>TIB</label><input data-f="tib" placeholder="Time in business" value="${esc(d.fields?.tib||'')}"></div>
+        <div class="field"><label>Credit</label><input data-f="credit" placeholder="Credit score" value="${esc(d.fields?.credit||'')}"></div>
+        <div class="field"><label>State</label><input data-f="state" placeholder="ST" maxlength="2" style="text-transform:uppercase" value="${esc(d.fields?.state||'')}"></div>
+        <div class="field"><label>ISO</label><input data-f="iso" placeholder="ISO name" value="${esc(d.fields?.iso||'')}"></div>
+        <div class="field"><label>Number</label><input data-f="number" placeholder="Phone number" value="${esc(d.fields?.number||'')}"></div>
+        <div class="field field-wide"><label>Email</label><input data-f="email" placeholder="Email address" type="email" value="${esc(d.fields?.email||'')}"></div>
+        <div class="field"><label>Lead Source</label><input data-f="leadsource" placeholder="Source" value="${esc(d.fields?.leadsource||'')}"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Monthly Revenue</div>
+      <table class="rev-table">
+        <thead><tr><th style="width:34px">Mo</th><th>Monthly Revs</th><th># of Deposits</th><th>ADB</th><th>MCA Positions</th><th>Balance</th><th>Payment - D/W</th></tr></thead>
+        <tbody>${[1,2,3,4].map(i => `<tr><td class="row-label"><input data-mo="${i}" maxlength="2" placeholder="—" value="${esc(d.rev?.['mo-'+i]||'')}"></td>${['rev','deps','adb','mca','bal','pay'].map(f => `<td><input data-rev="${i}-${f}" value="${esc(d.rev?.[i+'-'+f]||'')}"></td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="inline-group">
+        <div>
+          <span style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">In Courts?</span>
+          <div class="radio-group" style="margin-top:5px">
+            <input type="radio" name="courts-${id}" id="cy-${id}" value="Yes" ${d.courts==='Yes'?'checked':''}><label for="cy-${id}">Yes</label>
+            <input type="radio" name="courts-${id}" id="cn-${id}" value="No" ${d.courts==='No'?'checked':''}><label for="cn-${id}">No</label>
+          </div>
+        </div>
+        <div style="flex:1"><div class="field"><label>Most Recent Funding</label><input data-f="recentfunding" placeholder="Details of most recent funding" value="${esc(d.fields?.recentfunding||'')}"></div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="section-title" style="margin-bottom:0;">Lender Submissions</div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot ld-y"></span>Sent</div>
+          <div class="legend-item"><span class="legend-dot ld-g"></span>Approved</div>
+          <div class="legend-item"><span class="legend-dot ld-r"></span>Declined</div>
+          <div class="legend-item" style="margin-left:6px;font-size:10px;color:var(--text-muted);">Click = Sent &nbsp;|&nbsp; Right-click = Approve / Decline</div>
+        </div>
+      </div>
+      <div id="lender-container-${id}"></div>
+    </div>
+  </div>`;
+
+  // Build lender tables
+  buildLenderTables(id, d);
+
+  // Wire up auto-save on input
+  const view = c.querySelector('.deal-view');
+  view.addEventListener('input', () => {
+    saveDealFromDOM(id);
+    renderSidebar();
+    renderTabBar();
+  });
+  view.addEventListener('change', () => {
+    saveDealFromDOM(id);
+    renderSidebar();
+    renderTabBar();
+  });
+}
+
+function buildLenderTables(id, d) {
+  const container = document.getElementById('lender-container-' + id);
+  for (const [risk, list] of Object.entries(LENDERS)) {
+    const hdr = document.createElement('div');
+    hdr.className = `risk-header ${RISK_CLASS[risk]}`;
+    hdr.textContent = risk;
+    container.appendChild(hdr);
+
+    const table = document.createElement('table');
+    table.className = 'lender-table';
+    table.innerHTML = `<thead><tr><th class="col-name">Lender</th><th class="col-email">Email</th><th class="col-exempt">Exemptions</th><th class="col-status">Status / Notes</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    list.forEach((l, i) => {
+      const lk = `${risk}-${i}`;
+      const tr = document.createElement('tr');
+      tr.dataset.lenderKey = lk;
+      const state = d.lenderStates?.[lk] || '';
+      if (state) tr.classList.add(state);
+      tr.innerHTML = `
+        <td class="lender-name" title="${l.name}">${l.name}</td>
+        <td class="lender-email">${l.email}</td>
+        <td class="lender-exempt">${l.exempt}</td>
+        <td><input class="status-input" data-lk="${lk}" placeholder="Enter status..." value="${esc(d.lenders?.[lk]||'')}"></td>`;
+      tr.addEventListener('click', (e) => {
+        if (e.target.classList.contains('status-input')) return;
+        if (tr.classList.contains('approved') || tr.classList.contains('declined')) return;
+        tr.classList.toggle('sent');
+        saveDealFromDOM(id);
+        renderSidebar();
+      });
+      tr.addEventListener('contextmenu', (e) => {
+        if (e.target.classList.contains('status-input')) return;
+        e.preventDefault();
+        ctxTarget = { tr, dealId: id };
+        const menu = document.getElementById('ctx-menu');
+        menu.style.left = Math.min(e.clientX, window.innerWidth - 170) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - 120) + 'px';
+        menu.classList.add('show');
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+}
+
+/* ============================================================
+   SAVE / GATHER from DOM
+   ============================================================ */
+function saveDealFromDOM(id) {
+  const view = document.querySelector(`.deal-view[data-deal-id="${id}"]`);
+  if (!view) return;
+  const d = deals[id];
+  if (!d) return;
+
+  // Fields
+  d.fields = d.fields || {};
+  view.querySelectorAll('[data-f]').forEach(el => { d.fields[el.dataset.f] = el.value; });
+
+  // Courts
+  const court = view.querySelector(`input[name="courts-${id}"]:checked`);
+  d.courts = court ? court.value : '';
+
+  // Revenue
+  d.rev = d.rev || {};
+  view.querySelectorAll('[data-rev]').forEach(el => { d.rev[el.dataset.rev] = el.value; });
+  view.querySelectorAll('[data-mo]').forEach(el => { d.rev['mo-' + el.dataset.mo] = el.value; });
+
+  // Lender text + states
+  d.lenders = d.lenders || {};
+  d.lenderStates = d.lenderStates || {};
+  view.querySelectorAll('[data-lk]').forEach(el => { d.lenders[el.dataset.lk] = el.value; });
+  view.querySelectorAll('tr[data-lender-key]').forEach(tr => {
+    const k = tr.dataset.lenderKey;
+    if (tr.classList.contains('approved')) d.lenderStates[k] = 'approved';
+    else if (tr.classList.contains('declined')) d.lenderStates[k] = 'declined';
+    else if (tr.classList.contains('sent')) d.lenderStates[k] = 'sent';
+    else delete d.lenderStates[k];
+  });
+
+  persist();
+}
+
+/* ============================================================
+   CONTEXT MENU
+   ============================================================ */
+function setLenderState(state) {
+  if (!ctxTarget) return;
+  const { tr, dealId } = ctxTarget;
+  tr.classList.remove('sent','approved','declined');
+  if (state) tr.classList.add(state);
+  saveDealFromDOM(dealId);
+  renderSidebar();
+  hideCtx();
+}
+
+function hideCtx() {
+  document.getElementById('ctx-menu').classList.remove('show');
+  ctxTarget = null;
+}
+document.addEventListener('click', (e) => { if (!document.getElementById('ctx-menu').contains(e.target)) hideCtx(); });
+document.addEventListener('keydown', (e) => { if (e.key==='Escape') hideCtx(); });
+
+/* ============================================================
+   FIREBASE SETUP
+   ============================================================ */
+function checkFirebaseSetup() {
+  if (!firebaseUrl) {
+    document.getElementById('setup-overlay').style.display = 'flex';
+  }
+}
+
+function connectFirebase() {
+  const url = document.getElementById('fb-url').value.trim().replace(/\/$/,'');
+  if (!url || !url.startsWith('https://')) { alert('Enter a valid Firebase URL starting with https://'); return; }
+  firebaseUrl = url;
+  localStorage.setItem(LS_FB, firebaseUrl);
+  document.getElementById('setup-overlay').style.display = 'none';
+  // Push current local deals to firebase, then pull
+  saveToFirebase();
+  loadFromFirebase(() => {
+    renderSidebar();
+    if (activeView === 'dashboard') renderDashboard();
+  });
+  toast('Connected to Firebase!');
+}
+
+function skipFirebase() {
+  localStorage.setItem(LS_FB, '');
+  document.getElementById('setup-overlay').style.display = 'none';
+  setSyncStatus(false);
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+loadLocal();
+loadFromFirebase(() => {
+  renderSidebar();
+  renderTabBar();
+  // Restore last active view
+  if (activeView !== 'dashboard' && deals[activeView]) {
+    renderDealView(activeView);
+  } else {
+    showDashboard();
+  }
+});
+checkFirebaseSetup();
+</script>
+</body>
+</html>
