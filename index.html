@@ -220,6 +220,26 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
 .sync-dot.offline{background:var(--red);}
 
+/* Rep tabs */
+.rep-tabs{padding:6px 8px 2px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:3px;}
+.rep-tab{font-family:var(--font);font-size:11px;font-weight:600;padding:5px 10px;border-radius:4px;border:1px solid transparent;background:transparent;color:var(--text-muted);cursor:pointer;transition:all 0.12s;white-space:nowrap;}
+.rep-tab:hover{background:rgba(255,255,255,0.04);color:var(--text);}
+.rep-tab.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.rep-tab .rep-count{font-family:var(--mono);font-size:9px;background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:3px;margin-left:3px;}
+.rep-tab.active .rep-count{background:rgba(88,166,255,0.2);}
+
+/* Manage reps overlay */
+.reps-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.reps-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:420px;width:90%;}
+.reps-box h3{font-size:16px;font-weight:700;margin-bottom:14px;}
+.rep-list-manage{margin-bottom:14px;}
+.rep-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.rep-row span{flex:1;font-size:13px;font-weight:500;}
+.rep-row .btn{padding:3px 8px;font-size:10px;}
+.add-rep-row{display:flex;gap:6px;margin-top:10px;}
+.add-rep-row input{flex:1;font-family:var(--font);font-size:13px;padding:7px 10px;background:var(--input-bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);outline:none;}
+.add-rep-row input:focus{border-color:var(--border-focus);}
+
 /* Firebase setup overlay */
 .setup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .setup-box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;max-width:520px;width:90%;}
@@ -264,11 +284,16 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="sidebar-actions">
       <button class="btn btn-primary btn-full" onclick="createDeal()">+ New Deal</button>
     </div>
+    <!-- Rep Tabs -->
+    <div class="rep-tabs" id="rep-tabs"></div>
     <div class="deal-list" id="deal-list"></div>
     <div class="sidebar-footer">
-      <div class="sync-indicator" id="sync-status">
-        <span class="sync-dot" id="sync-dot"></span>
-        <span id="sync-text">Local mode</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="sync-indicator" id="sync-status">
+          <span class="sync-dot" id="sync-dot"></span>
+          <span id="sync-text">Local mode</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="manageReps()" title="Manage reps" style="font-size:10px;">Manage Reps</button>
       </div>
     </div>
   </div>
@@ -395,6 +420,8 @@ const FIELDS = ['date','business','industry','name','tib','credit','state','iso'
    STATE
    ============================================================ */
 let deals = {};        // {id: dealData}
+let reps = [];         // ['John','Joe','Chris',...]
+let selectedRep = null; // null = All, or rep name
 let openTabs = [];     // [dealId, ...]
 let activeView = 'dashboard'; // 'dashboard' or dealId
 let firebaseUrl = 'https://submissions-tracker-db9ac-default-rtdb.firebaseio.com';
@@ -406,6 +433,7 @@ let ctxTarget = null;
 const LS_KEY = 'gotham_deals';
 const LS_FB = 'gotham_firebase_url';
 const LS_TABS = 'gotham_open_tabs';
+const LS_REPS = 'gotham_reps';
 
 function loadLocal() {
   try {
@@ -413,7 +441,8 @@ function loadLocal() {
     if (raw) deals = JSON.parse(raw);
     const tabs = localStorage.getItem(LS_TABS);
     if (tabs) openTabs = JSON.parse(tabs).filter(id => deals[id]);
-    firebaseUrl = localStorage.getItem(LS_FB) || null;
+    const r = localStorage.getItem(LS_REPS);
+    if (r) reps = JSON.parse(r);
   } catch(e) {}
 }
 
@@ -421,13 +450,14 @@ function saveLocal() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(deals));
     localStorage.setItem(LS_TABS, JSON.stringify(openTabs));
+    localStorage.setItem(LS_REPS, JSON.stringify(reps));
   } catch(e) {}
 }
 
 function saveToFirebase() {
   if (!firebaseUrl) return;
   fetch(firebaseUrl + '/deals.json', {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(deals),
     headers: {'Content-Type': 'application/json'}
   }).then(() => {
@@ -435,21 +465,40 @@ function saveToFirebase() {
   }).catch(() => {
     setSyncStatus(false);
   });
+  // Also save reps
+  fetch(firebaseUrl + '/reps.json', {
+    method: 'PUT',
+    body: JSON.stringify(reps),
+    headers: {'Content-Type': 'application/json'}
+  }).catch(() => {});
+}
+
+function deleteDealFromFirebase(id) {
+  if (!firebaseUrl) return;
+  fetch(firebaseUrl + '/deals/' + id + '.json', {
+    method: 'DELETE'
+  }).catch(() => {});
 }
 
 function loadFromFirebase(cb) {
   if (!firebaseUrl) { cb(); return; }
-  fetch(firebaseUrl + '/deals.json')
-    .then(r => r.json())
-    .then(data => {
-      if (data && typeof data === 'object') {
-        // Merge: firebase wins for existing, keep local-only
-        Object.assign(deals, data);
-      }
-      setSyncStatus(true);
-      cb();
-    })
-    .catch(() => { setSyncStatus(false); cb(); });
+  // Load deals and reps in parallel
+  Promise.all([
+    fetch(firebaseUrl + '/deals.json').then(r => r.json()),
+    fetch(firebaseUrl + '/reps.json').then(r => r.json())
+  ]).then(([dealsData, repsData]) => {
+    if (dealsData && typeof dealsData === 'object') {
+      const localOnly = {};
+      Object.keys(deals).forEach(k => { if (!dealsData[k]) localOnly[k] = deals[k]; });
+      deals = Object.assign({}, dealsData, localOnly);
+    }
+    if (Array.isArray(repsData) && repsData.length) {
+      reps = repsData;
+    }
+    setSyncStatus(true);
+    saveLocal();
+    cb();
+  }).catch(() => { setSyncStatus(false); cb(); });
 }
 
 function persist() {
@@ -472,6 +521,7 @@ function newDealData() {
   const id = 'deal_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
   return {
     id,
+    rep: '',           // assigned rep
     fields: {},
     courts: '',
     rev: {},
@@ -494,7 +544,8 @@ function deleteDeal(id) {
   delete deals[id];
   openTabs = openTabs.filter(t => t !== id);
   if (activeView === id) showDashboard();
-  persist();
+  saveLocal();
+  deleteDealFromFirebase(id);
   renderSidebar();
   renderTabBar();
 }
@@ -512,11 +563,44 @@ function getDealPips(d) {
 }
 
 /* ============================================================
+   UI — Rep Tabs
+   ============================================================ */
+function renderRepTabs() {
+  const container = document.getElementById('rep-tabs');
+  const allCount = Object.keys(deals).length;
+  let html = `<button class="rep-tab${selectedRep===null?' active':''}" onclick="selectRep(null)">All<span class="rep-count">${allCount}</span></button>`;
+  reps.forEach(r => {
+    const count = Object.values(deals).filter(d => d.rep === r).length;
+    html += `<button class="rep-tab${selectedRep===r?' active':''}" onclick="selectRep('${esc(r)}')">${esc(r)}<span class="rep-count">${count}</span></button>`;
+  });
+  // Unassigned
+  const unassigned = Object.values(deals).filter(d => !d.rep).length;
+  if (unassigned && reps.length) {
+    html += `<button class="rep-tab${selectedRep==='__unassigned__'?' active':''}" onclick="selectRep('__unassigned__')">Unassigned<span class="rep-count">${unassigned}</span></button>`;
+  }
+  container.innerHTML = html;
+}
+
+function selectRep(rep) {
+  selectedRep = rep;
+  renderRepTabs();
+  renderSidebar();
+  if (activeView === 'dashboard') renderDashboard();
+}
+
+function getFilteredDeals() {
+  let list = Object.values(deals);
+  if (selectedRep === '__unassigned__') list = list.filter(d => !d.rep);
+  else if (selectedRep) list = list.filter(d => d.rep === selectedRep);
+  return list.sort((a,b) => b.created.localeCompare(a.created));
+}
+
+/* ============================================================
    UI — Sidebar
    ============================================================ */
 function renderSidebar() {
   const list = document.getElementById('deal-list');
-  const sorted = Object.values(deals).sort((a,b) => b.created.localeCompare(a.created));
+  const sorted = getFilteredDeals();
   if (!sorted.length) {
     list.innerHTML = '<div class="empty-state" style="padding:30px 10px;"><p style="font-size:12px;">No deals yet</p></div>';
     return;
@@ -529,6 +613,7 @@ function renderSidebar() {
         <div class="deal-biz">${esc(getDealLabel(d))}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
           <span class="deal-date">${d.fields?.date || '—'}</span>
+          ${d.rep ? `<span style="font-size:10px;color:var(--accent);font-weight:600;">${esc(d.rep)}</span>` : ''}
           <span class="deal-stats">
             ${pips.sent?`<span class="deal-pip pip-y">${pips.sent}</span>`:''}
             ${pips.approved?`<span class="deal-pip pip-g">${pips.approved}</span>`:''}
@@ -589,6 +674,7 @@ function showDashboard() {
   if (activeView !== 'dashboard' && deals[activeView]) saveDealFromDOM(activeView);
   activeView = 'dashboard';
   saveLocal();
+  renderRepTabs();
   renderSidebar();
   renderTabBar();
   renderDashboard();
@@ -599,9 +685,47 @@ function showDashboard() {
    ============================================================ */
 function renderDashboard() {
   const c = document.getElementById('content');
-  const sorted = Object.values(deals).sort((a,b) => b.created.localeCompare(a.created));
+  const allDeals = Object.values(deals).sort((a,b) => b.created.localeCompare(a.created));
+  const filtered = getFilteredDeals();
   let totalSent=0, totalApproved=0, totalDeclined=0;
-  sorted.forEach(d => { const p=getDealPips(d); totalSent+=p.sent; totalApproved+=p.approved; totalDeclined+=p.declined; });
+  allDeals.forEach(d => { const p=getDealPips(d); totalSent+=p.sent; totalApproved+=p.approved; totalDeclined+=p.declined; });
+
+  // Per-rep stats
+  let repStatsHtml = '';
+  if (reps.length) {
+    const repRows = reps.map(r => {
+      const repDeals = allDeals.filter(d => d.rep === r);
+      let rs=0,ra=0,rd=0;
+      repDeals.forEach(d => { const p=getDealPips(d); rs+=p.sent; ra+=p.approved; rd+=p.declined; });
+      return `<tr>
+        <td style="font-weight:600;font-size:13px;cursor:pointer;" onclick="selectRep('${esc(r)}')">${esc(r)}</td>
+        <td><span class="deal-pip" style="background:var(--accent-dim);color:var(--accent);">${repDeals.length}</span></td>
+        <td><span class="deal-pip pip-y">${rs}</span></td>
+        <td><span class="deal-pip pip-g">${ra}</span></td>
+        <td><span class="deal-pip pip-r">${rd}</span></td>
+      </tr>`;
+    }).join('');
+    // Unassigned row
+    const unDeals = allDeals.filter(d => !d.rep);
+    let us=0,ua=0,ud=0;
+    unDeals.forEach(d => { const p=getDealPips(d); us+=p.sent; ua+=p.approved; ud+=p.declined; });
+    const unRow = unDeals.length ? `<tr style="color:var(--text-muted);">
+      <td style="font-size:13px;cursor:pointer;" onclick="selectRep('__unassigned__')">Unassigned</td>
+      <td><span class="deal-pip" style="background:rgba(255,255,255,0.05);color:var(--text-muted);">${unDeals.length}</span></td>
+      <td><span class="deal-pip pip-y">${us}</span></td>
+      <td><span class="deal-pip pip-g">${ua}</span></td>
+      <td><span class="deal-pip pip-r">${ud}</span></td>
+    </tr>` : '';
+
+    repStatsHtml = `
+    <div class="section" style="margin-bottom:20px;">
+      <div class="section-title">Rep Performance</div>
+      <table class="dash-table">
+        <thead><tr><th>Rep</th><th>Deals</th><th>Sent</th><th>Approved</th><th>Declined</th></tr></thead>
+        <tbody>${repRows}${unRow}</tbody>
+      </table>
+    </div>`;
+  }
 
   c.innerHTML = `<div class="dash">
     <div class="dash-hero">
@@ -609,17 +733,20 @@ function renderDashboard() {
       <p>Manage all your deals and lender submissions in one place.</p>
     </div>
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-val stat-accent">${sorted.length}</div><div class="stat-label">Active Deals</div></div>
+      <div class="stat-card"><div class="stat-val stat-accent">${allDeals.length}</div><div class="stat-label">Active Deals</div></div>
       <div class="stat-card"><div class="stat-val stat-yellow">${totalSent}</div><div class="stat-label">Sent</div></div>
       <div class="stat-card"><div class="stat-val stat-green">${totalApproved}</div><div class="stat-label">Approved</div></div>
       <div class="stat-card"><div class="stat-val stat-red">${totalDeclined}</div><div class="stat-label">Declined</div></div>
     </div>
-    ${sorted.length ? `<table class="dash-table">
-      <thead><tr><th>Business</th><th>Date</th><th>State</th><th>Sent</th><th>Approved</th><th>Declined</th></tr></thead>
-      <tbody>${sorted.map(d => {
+    ${repStatsHtml}
+    ${filtered.length ? `<div class="section-title" style="margin-bottom:8px;">${selectedRep && selectedRep!=='__unassigned__' ? esc(selectedRep)+"'s Deals" : selectedRep==='__unassigned__' ? 'Unassigned Deals' : 'All Deals'}</div>
+    <table class="dash-table">
+      <thead><tr><th>Business</th><th>Rep</th><th>Date</th><th>State</th><th>Sent</th><th>Approved</th><th>Declined</th></tr></thead>
+      <tbody>${filtered.map(d => {
         const p = getDealPips(d);
         return `<tr onclick="openTab('${d.id}')">
           <td class="dt-biz">${esc(getDealLabel(d))}</td>
+          <td style="font-size:12px;color:var(--accent);">${esc(d.rep||'—')}</td>
           <td class="dt-date">${d.fields?.date||'—'}</td>
           <td class="dt-state">${d.fields?.state||'—'}</td>
           <td><span class="deal-pip pip-y">${p.sent}</span></td>
@@ -651,6 +778,10 @@ function renderDealView(id) {
     <div class="section">
       <div class="section-title">Deal Information</div>
       <div class="fields-grid">
+        <div class="field"><label>Rep</label><select data-f="__rep__" style="font-family:var(--font);font-size:12px;padding:6px 9px;background:var(--input-bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);outline:none;">
+          <option value="">— Select Rep —</option>
+          ${reps.map(r => `<option value="${esc(r)}"${d.rep===r?' selected':''}>${esc(r)}</option>`).join('')}
+        </select></div>
         <div class="field"><label>Date</label><input type="date" data-f="date" value="${d.fields?.date||''}"></div>
         <div class="field"><label>Business</label><input data-f="business" placeholder="Business name" value="${esc(d.fields?.business||'')}"></div>
         <div class="field"><label>Industry</label><input data-f="industry" placeholder="Industry type" value="${esc(d.fields?.industry||'')}"></div>
@@ -775,7 +906,13 @@ function saveDealFromDOM(id) {
 
   // Fields
   d.fields = d.fields || {};
-  view.querySelectorAll('[data-f]').forEach(el => { d.fields[el.dataset.f] = el.value; });
+  view.querySelectorAll('[data-f]').forEach(el => {
+    if (el.dataset.f === '__rep__') {
+      d.rep = el.value;
+    } else {
+      d.fields[el.dataset.f] = el.value;
+    }
+  });
 
   // Courts
   const court = view.querySelector(`input[name="courts-${id}"]:checked`);
@@ -852,6 +989,66 @@ function skipFirebase() {
 }
 
 /* ============================================================
+   REP MANAGEMENT
+   ============================================================ */
+function manageReps() {
+  // Remove existing overlay if any
+  const existing = document.getElementById('reps-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'reps-overlay';
+  overlay.id = 'reps-overlay';
+  overlay.innerHTML = `<div class="reps-box">
+    <h3>Manage Reps</h3>
+    <div class="rep-list-manage" id="rep-list-manage">
+      ${reps.map((r,i) => `<div class="rep-row"><span>${esc(r)}</span><button class="btn btn-danger btn-sm" onclick="removeRep(${i})">Remove</button></div>`).join('')}
+      ${!reps.length ? '<p style="font-size:12px;color:var(--text-muted);padding:10px 0;">No reps added yet.</p>' : ''}
+    </div>
+    <div class="add-rep-row">
+      <input id="new-rep-name" placeholder="Rep name" onkeydown="if(event.key==='Enter')addRep()">
+      <button class="btn btn-primary btn-sm" onclick="addRep()">Add</button>
+    </div>
+    <div style="margin-top:16px;text-align:right;">
+      <button class="btn" onclick="closeRepsOverlay()">Done</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('new-rep-name').focus();
+}
+
+function addRep() {
+  const input = document.getElementById('new-rep-name');
+  const name = input.value.trim();
+  if (!name) return;
+  if (reps.includes(name)) { toast('Rep already exists'); return; }
+  reps.push(name);
+  persist();
+  manageReps(); // re-render overlay
+  renderRepTabs();
+  renderSidebar();
+  if (activeView === 'dashboard') renderDashboard();
+}
+
+function removeRep(idx) {
+  const name = reps[idx];
+  if (!confirm(`Remove ${name}? Their deals will become unassigned.`)) return;
+  reps.splice(idx, 1);
+  // Unassign deals
+  Object.values(deals).forEach(d => { if (d.rep === name) d.rep = ''; });
+  persist();
+  manageReps();
+  renderRepTabs();
+  renderSidebar();
+  if (activeView === 'dashboard') renderDashboard();
+}
+
+function closeRepsOverlay() {
+  const overlay = document.getElementById('reps-overlay');
+  if (overlay) overlay.remove();
+}
+
+/* ============================================================
    HELPERS
    ============================================================ */
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -867,6 +1064,7 @@ function toast(msg) {
    ============================================================ */
 loadLocal();
 loadFromFirebase(() => {
+  renderRepTabs();
   renderSidebar();
   renderTabBar();
   // Restore last active view
